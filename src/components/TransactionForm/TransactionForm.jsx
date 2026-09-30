@@ -1,79 +1,65 @@
-import React, { useState, useEffect } from 'react';
-import styles from './TransactionForm.module.css';
+import React, { useState, useEffect } from "react";
+import styles from "./TransactionForm.module.css";
 
-// Fallback-категории до подключения constants.js в фазе E
+// Fallback-категории — будут заменены на импорты из констант в фазе E
 const FALLBACK_INCOME_CATEGORIES = [
-  { id: 'salary', label: 'Зарплата' },
-  { id: 'freelance', label: 'Подработка' },
-  { id: 'bonus', label: 'Премия' },
-  { id: 'debt_return', label: 'Возврат долга' },
-  { id: 'deposit_interest', label: 'Проценты по вкладу' },
-  { id: 'gift', label: 'Подарок' },
-  { id: 'other', label: 'Прочее' },
+  { id: "salary", label: "Зарплата" },
+  { id: "freelance", label: "Подработка" },
+  { id: "bonus", label: "Премия" },
+  { id: "debt_return", label: "Возврат долга" },
+  { id: "deposit_interest", label: "Проценты по вкладу" },
+  { id: "gift", label: "Подарок" },
+  { id: "other", label: "Прочее" },
 ];
 
 const FALLBACK_EXPENSE_CATEGORIES = [
-  { id: 'groceries', label: 'Продукты' },
-  { id: 'utilities', label: 'Коммуналка' },
-  { id: 'rent', label: 'Аренда' },
-  { id: 'subscriptions', label: 'Подписки' },
-  { id: 'transport', label: 'Транспорт' },
-  { id: 'health', label: 'Здоровье' },
-  { id: 'clothing', label: 'Одежда' },
-  { id: 'entertainment', label: 'Развлечения' },
-  { id: 'communication', label: 'Связь' },
-  { id: 'other', label: 'Прочее' },
+  { id: "groceries", label: "Продукты" },
+  { id: "utilities", label: "Коммуналка" },
+  { id: "rent", label: "Аренда" },
+  { id: "subscriptions", label: "Подписки" },
+  { id: "transport", label: "Транспорт" },
+  { id: "health", label: "Здоровье" },
+  { id: "clothing", label: "Одежда" },
+  { id: "entertainment", label: "Развлечения" },
+  { id: "communication", label: "Связь" },
+  { id: "other", label: "Прочее" },
 ];
 
-// Пробуем импортировать реальные константы, иначе используем fallback
-let INCOME_CATEGORIES = FALLBACK_INCOME_CATEGORIES;
-let EXPENSE_CATEGORIES = FALLBACK_EXPENSE_CATEGORIES;
-
-try {
-  // Динамический импорт не нужен — просто используем fallback,
-  // а в фазе F заменим на реальный импорт
-} catch (e) {
-  // Используем fallback
-}
-
 function TransactionForm({ onSubmit, onCancel, editData }) {
-  const [type, setType] = useState(editData?.type || 'expense');
-  const [category, setCategory] = useState(editData?.category || '');
-  const [amount, setAmount] = useState(editData?.amount?.toString() || '');
-  const [date, setDate] = useState(editData?.date || new Date().toISOString().split('T')[0]);
-  const [comment, setComment] = useState(editData?.comment || '');
+  const [type, setType] = useState(editData?.type || "expense");
+  const [category, setCategory] = useState(editData?.category || "");
+  const [amount, setAmount] = useState(editData?.amount ?? "");
+  const [date, setDate] = useState(
+    editData?.date || new Date().toISOString().split("T")[0],
+  );
+  const [comment, setComment] = useState(editData?.comment || "");
 
-  // Сбрасываем категорию при смене типа, если текущая категория не принадлежит новому типу
+  // Получаем категории в зависимости от выбранного типа
+  const categories =
+    type === "income"
+      ? FALLBACK_INCOME_CATEGORIES
+      : FALLBACK_EXPENSE_CATEGORIES;
+
+  // Сбрасываем категорию при смене типа
   useEffect(() => {
-    const currentCategories = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
-    const categoryExists = (currentCategories || []).some(c => c.id === category);
-    if (!categoryExists) {
-      setCategory(currentCategories?.[0]?.id || '');
-    }
+    setCategory("");
   }, [type]);
 
-  // Получаем список категорий для текущего типа
-  const currentCategories = type === 'income' 
-    ? (INCOME_CATEGORIES || FALLBACK_INCOME_CATEGORIES) 
-    : (EXPENSE_CATEGORIES || FALLBACK_EXPENSE_CATEGORIES);
-
+  // Обработка отправки формы
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    const formData = {
+    if (!category || !amount || !date) return;
+
+    const transactionData = {
       type,
       category,
-      amount: parseFloat(amount) || 0,
+      amount: Number(amount),
       date,
       comment: comment.trim(),
     };
 
-    // Если редактируем — добавляем id
-    if (editData?.id) {
-      formData.id = editData.id;
-    }
-
-    onSubmit?.(formData);
+    onSubmit(transactionData);
   };
 
   return (
@@ -81,20 +67,24 @@ function TransactionForm({ onSubmit, onCancel, editData }) {
       {/* Переключатель типа операции */}
       <div className={styles.fieldGroup}>
         <label className={styles.label}>Тип операции</label>
-        <div className={styles.typeSwitcher}>
+        <div className={styles.typeSelector}>
           <button
             type="button"
-            className={`${styles.typeButton} ${type === 'income' ? styles.typeButtonActiveIncome : ''}`}
-            onClick={() => setType('income')}
+            className={`${styles.typeButton} ${
+              type === "income" ? styles.typeButtonIncomeActive : ""
+            }`}
+            onClick={() => setType("income")}
           >
-            💵 Доход
+            Доход
           </button>
           <button
             type="button"
-            className={`${styles.typeButton} ${type === 'expense' ? styles.typeButtonActiveExpense : ''}`}
-            onClick={() => setType('expense')}
+            className={`${styles.typeButton} ${
+              type === "expense" ? styles.typeButtonExpenseActive : ""
+            }`}
+            onClick={() => setType("expense")}
           >
-            💸 Расход
+            Расход
           </button>
         </div>
       </div>
@@ -102,16 +92,15 @@ function TransactionForm({ onSubmit, onCancel, editData }) {
       {/* Категория и сумма */}
       <div className={styles.grid}>
         <div className={styles.fieldGroup}>
-          <label className={styles.label}>
-            Категория<span className={styles.required}>*</span>
-          </label>
+          <label className={styles.label}>Категория</label>
           <select
             className={styles.select}
             value={category}
             onChange={(e) => setCategory(e.target.value)}
             required
           >
-            {(currentCategories || []).map((cat) => (
+            <option value="">Выберите категорию</option>
+            {(categories || []).map((cat) => (
               <option key={cat.id} value={cat.id}>
                 {cat.label}
               </option>
@@ -120,17 +109,15 @@ function TransactionForm({ onSubmit, onCancel, editData }) {
         </div>
 
         <div className={styles.fieldGroup}>
-          <label className={styles.label}>
-            Сумма (₽)<span className={styles.required}>*</span>
-          </label>
+          <label className={styles.label}>Сумма (₽)</label>
           <input
             type="number"
             className={styles.input}
             placeholder="0"
-            min="0"
-            step="0.01"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
+            min="0"
+            step="0.01"
             required
           />
         </div>
@@ -138,9 +125,7 @@ function TransactionForm({ onSubmit, onCancel, editData }) {
 
       {/* Дата */}
       <div className={styles.fieldGroup}>
-        <label className={styles.label}>
-          Дата<span className={styles.required}>*</span>
-        </label>
+        <label className={styles.label}>Дата</label>
         <input
           type="date"
           className={styles.input}
@@ -158,11 +143,12 @@ function TransactionForm({ onSubmit, onCancel, editData }) {
           placeholder="Необязательное описание операции..."
           value={comment}
           onChange={(e) => setComment(e.target.value)}
+          rows={3}
         />
       </div>
 
-      {/* Кнопки */}
-      <div className={styles.footer}>
+      {/* Кнопки действий */}
+      <div className={styles.actions}>
         {onCancel && (
           <button
             type="button"
@@ -176,7 +162,7 @@ function TransactionForm({ onSubmit, onCancel, editData }) {
           type="submit"
           className={`${styles.button} ${styles.buttonPrimary}`}
         >
-          {editData?.id ? 'Сохранить изменения' : 'Добавить'}
+          {editData ? "Сохранить изменения" : "Добавить операцию"}
         </button>
       </div>
     </form>

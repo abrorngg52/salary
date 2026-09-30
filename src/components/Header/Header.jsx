@@ -1,43 +1,44 @@
-import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import styles from './Header.module.css';
+import React from "react";
+import { NavLink } from "react-router-dom";
+import styles from "./Header.module.css";
 
 function Header() {
-  const location = useLocation();
-  
-  // Функция для проверки активного маршрута
-  const isActive = (path) => {
-    if (path === '/') {
-      return location.pathname === '/';
-    }
-    return location.pathname.startsWith(path);
-  };
-  
   return (
     <header className={styles.header}>
-      <div className={styles.logo}>
-        💰 Salary Tracker
+      <div className={styles.headerContent}>
+        <NavLink to="/" className={styles.logo}>
+          <span className={styles.logoIcon}>💰</span>
+          <span>Salary Tracker</span>
+        </NavLink>
+
+        <nav className={styles.nav}>
+          <NavLink
+            to="/"
+            end
+            className={({ isActive }) =>
+              `${styles.navLink} ${isActive ? styles.navLinkActive : ""}`
+            }
+          >
+            Главная
+          </NavLink>
+          <NavLink
+            to="/history"
+            className={({ isActive }) =>
+              `${styles.navLink} ${isActive ? styles.navLinkActive : ""}`
+            }
+          >
+            История
+          </NavLink>
+          <NavLink
+            to="/analytics"
+            className={({ isActive }) =>
+              `${styles.navLink} ${isActive ? styles.navLinkActive : ""}`
+            }
+          >
+            Аналитика
+          </NavLink>
+        </nav>
       </div>
-      <nav className={styles.nav}>
-        <Link 
-          to="/" 
-          className={`${styles.navLink} ${isActive('/') ? styles.navLinkActive : ''}`}
-        >
-          Главная
-        </Link>
-        <Link 
-          to="/history" 
-          className={`${styles.navLink} ${isActive('/history') ? styles.navLinkActive : ''}`}
-        >
-          История
-        </Link>
-        <Link 
-          to="/analytics" 
-          className={`${styles.navLink} ${isActive('/analytics') ? styles.navLinkActive : ''}`}
-        >
-          Аналитика
-        </Link>
-      </nav>
     </header>
   );
 }

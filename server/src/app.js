@@ -1,29 +1,20 @@
 import express from 'express';
 import cors from 'cors';
-import { CORS_OPTIONS } from './config/index.js';
+import { config } from './config/index.js';
 import incomesRouter from './routes/incomes.js';
 import expensesRouter from './routes/expenses.js';
 import summaryRouter from './routes/summary.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
-// Создаём Express-приложение
 const app = express();
 
-// Middleware для обработки CORS
-app.use(cors(CORS_OPTIONS));
+// Middleware для CORS (разрешаем запросы с фронтенда)
+app.use(cors(config.cors));
 
-// Middleware для парсинга JSON в теле запроса
+// Middleware для парсинга JSON в теле запросов
 app.use(express.json());
 
-// Middleware для парсинга URL-encoded данных (опционально)
-app.use(express.urlencoded({ extended: true }));
-
-// Подключаем роуты с префиксом /api/v1
-app.use('/api/v1/incomes', incomesRouter);
-app.use('/api/v1/expenses', expensesRouter);
-app.use('/api/v1/summary', summaryRouter);
-
-// Корневой маршрут для проверки работоспособности сервера
+// Базовый маршрут для проверки работоспособности
 app.get('/', (req, res) => {
   res.json({
     message: 'Salary Tracker API работает',
@@ -35,6 +26,11 @@ app.get('/', (req, res) => {
     },
   });
 });
+
+// Подключаем роуты
+app.use('/api/v1/incomes', incomesRouter);
+app.use('/api/v1/expenses', expensesRouter);
+app.use('/api/v1/summary', summaryRouter);
 
 // Обработчик для несуществующих маршрутов (404)
 app.use(notFoundHandler);

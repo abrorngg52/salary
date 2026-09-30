@@ -5,15 +5,17 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Порт, на котором будет работать сервер
-export const PORT = process.env.PORT || 3001;
+export const config = {
+  // Порт, на котором будет запущен сервер
+  port: process.env.PORT || 3001,
+  
+  // Настройки CORS для разрешения запросов с фронтенда
+  cors: {
+    origin: process.env.CORS_ORIGIN || 'http://localhost:5173', // Стандартный порт Vite
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  },
 
-// Путь к файлу базы данных SQLite (будет создан в корне папки server)
-export const DB_PATH = path.join(__dirname, '../../database.sqlite');
-
-// Настройки CORS для разрешения запросов с фронтенда (Vite по умолчанию на 5173)
-export const CORS_OPTIONS = {
-  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  // Путь к файлу базы данных SQLite
+  dbPath: path.resolve(__dirname, '../../data/database.sqlite'),
 };

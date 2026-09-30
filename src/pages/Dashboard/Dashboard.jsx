@@ -1,109 +1,92 @@
-import React, { useState, useEffect } from 'react';
-import styles from './Dashboard.module.css';
-import BalanceCard from '../../components/BalanceCard/BalanceCard';
-import EmptyState from '../../components/EmptyState/EmptyState';
-import TransactionList from '../../components/TransactionList/TransactionList';
-import Modal from '../../components/Modal/Modal';
-import TransactionForm from '../../components/TransactionForm/TransactionForm';
-import { getBalance, getRecentTransactions } from '../../services/summaryService';
-import { addIncome } from '../../services/incomeService';
-import { addExpense } from '../../services/expenseService';
+import React, { useState, useMemo } from "react";
+import { useData } from "../../context/DataContext";
+import BalanceCard from "../../components/BalanceCard/BalanceCard";
+import EmptyState from "../../components/EmptyState/EmptyState";
+import TransactionList from "../../components/TransactionList/TransactionList";
+import Modal from "../../components/Modal/Modal";
+import TransactionForm from "../../components/TransactionForm/TransactionForm";
+import styles from "./Dashboard.module.css";
 
 function Dashboard() {
-  const [balance, setBalance] = useState({ totalIncome: 0, totalExpense: 0, balance: 0 });
-  const [recentTransactions, setRecentTransactions] = useState([]);
+  const { incomes, expenses, addTransaction, deleteTransaction } = useData();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Загрузка данных при монтировании
-  useEffect(() => {
-    loadData();
-  }, []);
+  // Вычисляем балансы
+  const { totalIncome, totalExpense, balance } = useMemo(() => {
+    const income = (incomes || []).reduce(
+      (sum, inc) => sum + (inc.amount || 0),
+      0,
+    );
+    const expense = (expenses || []).reduce(
+      (sum, exp) => sum + (exp.amount || 0),
+      0,
+    );
+    return {
+      totalIncome: income,
+      totalExpense: expense,
+      balance: income - expense,
+    };
+  }, [incomes, expenses]);
 
-  const loadData = () => {
-    const balanceData = getBalance();
-    setBalance(balanceData);
+  // Последние 5 транзакций
+  const recentTransactions = useMemo(() => {
+    const allTransactions = [...(incomes || []), ...(expenses || [])];
+    return allTransactions
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, 5);
+  }, [incomes, expenses]);
 
-    const recent = getRecentTransactions(5);
-    setRecentTransactions(recent);
+  // Обработчики модалки
+  const handleOpenModal = () => setIsModalOpen(true);
+  const handleCloseModal = () => setIsModalOpen(false);
+
+  // Обработчик добавления транзакции
+  const handleSubmit = (transactionData) => {
+    addTransaction(transactionData);
+    handleCloseModal();
   };
 
-  const handleOpenModal = () => {
-    setIsModalOpen(true);
-  };
-
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-  };
-
-  const handleSubmitTransaction = (formData) => {
-    try {
-      if (formData.type === 'income') {
-        addIncome(formData);
-      } else {
-        addExpense(formData);
-      }
-
-      // Перезагружаем данные
-      loadData();
-      handleCloseModal();
-    } catch (error) {
-      console.error('Ошибка сохранения операции:', error);
+  // Обработчик удаления транзакции
+  const handleDelete = (id) => {
+    // Находим транзакцию, чтобы определить её тип
+    const transaction = [...(incomes || []), ...(expenses || [])].find(
+      (t) => t.id === id,
+    );
+    if (transaction) {
+      deleteTransaction(id, transaction.type);
     }
   };
 
   return (
     <div className={styles.dashboard}>
-      <h1 className={styles.title}>Главная</h1>
-      
-      {/* Карточки баланса */}
-      <div className={styles.balanceGrid}>
-        <BalanceCard 
-          title="Доходы" 
-          amount={balance.totalIncome} 
-          type="income"
-        />
-        <BalanceCard 
-          title="Расходы" 
-          amount={balance.totalExpense} 
-          type="expense"
-        />
-        <BalanceCard 
-          title="Баланс" 
-          amount={balance.balance} 
-          type="balance"
-        />
+      <div className={styles.header}>
+        <h1 className={styles.title}>Обзор</h1>
+        <button className={styles.addButton} onClick={handleOpenModal}>
+          <span className={styles.addIcon}>+</span>
+          Добавить операцию
+        </button>
       </div>
 
-      {/* Последние операции */}
+      <div className={styles.balanceGrid}>
+        <BalanceCard title="Доходы" amount={totalIncome} color="income" />
+        <BalanceCard title="Расходы" amount={totalExpense} color="expense" />
+        <BalanceCard title="Баланс" amount={balance} color="balance" />
+      </div>
+
       <div className={styles.recentSection}>
-        <div className={styles.sectionHeader}>
-          <h2 className={styles.sectionTitle}>Последние операции</h2>
-        </div>
-        
+        <h2 className={styles.sectionTitle}>Последние операции</h2>
         <TransactionList
           transactions={recentTransactions}
+          onDelete={handleDelete}
         />
       </div>
 
-      {/* Плавающая кнопка добавления */}
-      <button 
-        className={styles.addButton}
-        onClick={handleOpenModal}
-        title="Добавить операцию"
-      >
-        +
-      </button>
-
-      {/* Модалка с формой добавления */}
       <Modal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         title="Добавить операцию"
       >
-        <TransactionForm
-          onSubmit={handleSubmitTransaction}
-          onCancel={handleCloseModal}
-        />
+        <TransactionForm onSubmit={handleSubmit} onCancel={handleCloseModal} />
       </Modal>
     </div>
   );

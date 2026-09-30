@@ -1,24 +1,32 @@
-import * as incomeService from '../services/incomeService.js';
+import {
+  getAllIncomes,
+  getIncomeById,
+  createIncome,
+  updateIncome,
+  deleteIncome,
+} from '../services/incomeService.js';
+import { createError } from '../middleware/errorHandler.js';
 
 /**
- * Получение списка всех доходов с пагинацией и фильтрами
- * @param {Object} req - Объект запроса Express
- * @param {Object} res - Объект ответа Express
- * @param {Function} next - Следующий middleware
+ * Получение списка всех доходов с фильтрами и пагинацией
+ * GET /api/v1/incomes
  */
-export const getAll = async (req, res, next) => {
+export const getIncomes = async (req, res, next) => {
   try {
-    const { page, limit, category, dateFrom, dateTo } = req.query;
+    const { category, startDate, endDate, page = 1, limit = 20 } = req.query;
 
-    const result = await incomeService.getAll({
-      page: page ? parseInt(page, 10) : undefined,
-      limit: limit ? parseInt(limit, 10) : undefined,
+    const result = await getAllIncomes({
       category,
-      dateFrom,
-      dateTo,
+      startDate,
+      endDate,
+      page: Number(page),
+      limit: Number(limit),
     });
 
-    res.json(result);
+    res.json({
+      data: result.data,
+      pagination: result.pagination,
+    });
   } catch (error) {
     next(error);
   }
@@ -26,23 +34,18 @@ export const getAll = async (req, res, next) => {
 
 /**
  * Получение дохода по ID
- * @param {Object} req - Объект запроса Express
- * @param {Object} res - Объект ответа Express
- * @param {Function} next - Следующий middleware
+ * GET /api/v1/incomes/:id
  */
-export const getById = async (req, res, next) => {
+export const getIncome = async (req, res, next) => {
   try {
     const { id } = req.params;
-
-    const income = await incomeService.getById(id);
+    const income = await getIncomeById(id);
 
     if (!income) {
-      const error = new Error(`Доход с ID ${id} не найден`);
-      error.statusCode = 404;
-      throw error;
+      return next(createError('Доход не найден', 404, 'NOT_FOUND'));
     }
 
-    res.json(income);
+    res.json({ data: income });
   } catch (error) {
     next(error);
   }
@@ -50,39 +53,38 @@ export const getById = async (req, res, next) => {
 
 /**
  * Создание нового дохода
- * @param {Object} req - Объект запроса Express
- * @param {Object} res - Объект ответа Express
- * @param {Function} next - Следующий middleware
+ * POST /api/v1/incomes
  */
-export const create = async (req, res, next) => {
+export const addIncome = async (req, res, next) => {
   try {
     const { amount, date, category, comment } = req.body;
 
-    const newIncome = await incomeService.create({
+    const newIncome = await createIncome({
       amount,
       date,
       category,
       comment,
     });
 
-    res.status(201).json(newIncome);
+    res.status(201).json({
+      data: newIncome,
+      message: 'Доход успешно создан',
+    });
   } catch (error) {
     next(error);
   }
 };
 
 /**
- * Обновление дохода
- * @param {Object} req - Объект запроса Express
- * @param {Object} res - Объект ответа Express
- * @param {Function} next - Следующий middleware
+ * Обновление существующего дохода
+ * PUT /api/v1/incomes/:id
  */
-export const update = async (req, res, next) => {
+export const editIncome = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { amount, date, category, comment } = req.body;
 
-    const updatedIncome = await incomeService.update(id, {
+    const updatedIncome = await updateIncome(id, {
       amount,
       date,
       category,
@@ -90,12 +92,13 @@ export const update = async (req, res, next) => {
     });
 
     if (!updatedIncome) {
-      const error = new Error(`Доход с ID ${id} не найден`);
-      error.statusCode = 404;
-      throw error;
+      return next(createError('Доход не найден', 404, 'NOT_FOUND'));
     }
 
-    res.json(updatedIncome);
+    res.json({
+      data: updatedIncome,
+      message: 'Доход успешно обновлён',
+    });
   } catch (error) {
     next(error);
   }
@@ -103,23 +106,20 @@ export const update = async (req, res, next) => {
 
 /**
  * Удаление дохода
- * @param {Object} req - Объект запроса Express
- * @param {Object} res - Объект ответа Express
- * @param {Function} next - Следующий middleware
+ * DELETE /api/v1/incomes/:id
  */
-export const remove = async (req, res, next) => {
+export const removeIncome = async (req, res, next) => {
   try {
     const { id } = req.params;
+    const success = await deleteIncome(id);
 
-    const deleted = await incomeService.remove(id);
-
-    if (!deleted) {
-      const error = new Error(`Доход с ID ${id} не найден`);
-      error.statusCode = 404;
-      throw error;
+    if (!success) {
+      return next(createError('Доход не найден', 404, 'NOT_FOUND'));
     }
 
-    res.json({ success: true, message: 'Доход успешно удалён' });
+    res.json({
+      message: 'Доход успешно удалён',
+    });
   } catch (error) {
     next(error);
   }

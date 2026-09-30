@@ -1,180 +1,125 @@
 import { getDb } from '../db/connection.js';
+import { INCOME_CATEGORIES, EXPENSE_CATEGORIES } from '../utils/categories.js';
 
 /**
- * Обёртка для выполнения SQL-запроса с промисом (all)
+ * Получение общего баланса (доходы, расходы, разница)
  */
-const dbAll = (sql, params = []) => {
-  return new Promise((resolve, reject) => {
-    getDb().then(db => {
-      db.all(sql, params, (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows);
-      });
-    }).catch(reject);
-  });
-};
+export const getBalance = async (startDate, endDate) => {
+  const db = getDb();
 
-/**
- * Обёртка для выполнения SQL-запроса с промисом (get — одна строка)
- */
-const dbGet = (sql, params = []) => {
-  return new Promise((resolve, reject) => {
-    getDb().then(db => {
-      db.get(sql, params, (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
-      });
-    }).catch(reject);
-  });
-};
-
-/**
- * Получение общего баланса (сумма доходов - сумма расходов)
- * @param {Object} options - Опции фильтрации
- * @param {string} options.dateFrom - Дата от (включительно)
- * @param {string} options.dateTo - Дата до (включительно)
- * @returns {Promise<Object>} Объект с totalIncome, totalExpense, balance
- */
-export const getBalance = async ({ dateFrom, dateTo } = {}) => {
-  const conditions = [];
-  const params = [];
-
-  if (dateFrom) {
-    conditions.push('date >= ?');
-    params.push(dateFrom);
+  // Фильтрация доходов по датам
+  let incomes = db.data.incomes;
+  if (startDate) {
+    incomes = incomes.filter((item) => item.date >= startDate);
+  }
+  if (endDate) {
+    incomes = incomes.filter((item) => item.date <= endDate);
   }
 
-  if (dateTo) {
-    conditions.push('date <= ?');
-    params.push(dateTo);
+  // Фильтрация расходов по датам
+  let expenses = db.data.expenses;
+  if (startDate) {
+    expenses = expenses.filter((item) => item.date >= startDate);
+  }
+  if (endDate) {
+    expenses = expenses.filter((item) => item.date <= endDate);
   }
 
-  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-
-  // Сумма доходов
-  const incomeRow = await dbGet(
-    `SELECT COALESCE(SUM(amount), 0) as total FROM incomes ${whereClause}`,
-    params
-  );
-
-  // Сумма расходов
-  const expenseRow = await dbGet(
-    `SELECT COALESCE(SUM(amount), 0) as total FROM expenses ${whereClause}`,
-    params
-  );
-
-  const totalIncome = incomeRow?.total || 0;
-  const totalExpense = expenseRow?.total || 0;
-  const balance = totalIncome - totalExpense;
+  // Суммируем с помощью reduce
+  const totalIncome = incomes.reduce((sum, item) => sum + item.amount, 0);
+  const totalExpense = expenses.reduce((sum, item) => sum + item.amount, 0);
 
   return {
     totalIncome,
     totalExpense,
-    balance,
+    balance: totalIncome - totalExpense,
   };
 };
 
 /**
- * Получение расходов, сгруппированных по категориям
- * @param {Object} options - Опции фильтрации
- * @param {string} options.dateFrom - Дата от (включительно)
- * @param {string} options.dateTo - Дата до (включительно)
- * @returns {Promise<Array>} Массив объектов { category, total, count }
+ * Получение сумм по категориям для круговой диаграммы
  */
-export const getByCategory = async ({ dateFrom, dateTo } = {}) => {
-  const conditions = [];
-  const params = [];
+export const getByCategory = async (type = 'expense', startDate, endDate) => {
+  const db = getDb();
+  const items = type === 'income' ? db.data.incomes : db.data.expenses;
+  const categories = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
 
-  if (dateFrom) {
-    conditions.push('date >= ?');
-    params.push(dateFrom);
+  // Фильтрация по датам
+  let filtered = items;
+  if (startDate) {
+    filtered = filtered.filter((item) => item.date >= startDate);
+  }
+  if (endDate) {
+    filtered = filtered.filter((item) => item.date <= endDate);
   }
 
-  if (dateTo) {
-    conditions.push('date <= ?');
-    params.push(dateTo);
-  }
+  // Группируем суммы по категориям
+  const categorySums = {};
+  filtered.forEach((item) => {
+    if (!categorySums[item.category]) {
+      categorySums[item.category] = 0;
+    }
+    categorySums[item.category] += item.amount;
+  });
 
-  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-
-  const rows = await dbAll(
-    `SELECT 
-       category,
-       SUM(amount) as total,
-       COUNT(*) as count
-     FROM expenses 
-     ${whereClause}
-     GROUP BY category
-     ORDER BY total DESC`,
-    params
-  );
-
-  return (rows || []).map(row => ({
-    category: row.category,
-    total: row.total,
-    count: row.count,
-  }));
+  // Маппим в формат ответа, добавляя названия категорий
+  return Object.entries(categorySums)
+    .map(([categoryId, total]) => {
+      const categoryInfo = categories.find((cat) => cat.id === categoryId);
+      return {
+        categoryId,
+        categoryLabel: categoryInfo ? categoryInfo.label : categoryId,
+        total,
+      };
+    })
+    .sort((a, b) => b.total - a.total);
 };
 
 /**
- * Получение доходов и расходов, сгруппированных по месяцам
- * @param {number} monthsCount - Количество последних месяцев (по умолчанию 12)
- * @returns {Promise<Array>} Массив объектов { month, income, expense }
+ * Получение помесячной сводки доходов и расходов
  */
-export const getByMonth = async (monthsCount = 12) => {
-  // Вычисляем дату N месяцев назад
+export const getByMonth = async (monthsCount = 6) => {
+  const db = getDb();
+
+  // Вычисляем дату начала периода
   const now = new Date();
-  const startDate = new Date(now.getFullYear(), now.getMonth() - monthsCount + 1, 1);
-  const startDateStr = startDate.toISOString().split('T')[0];
+  const startDateObj = new Date(now.getFullYear(), now.getMonth() - monthsCount + 1, 1);
+  const startDateStr = startDateObj.toISOString().split('T')[0];
 
-  // Получаем доходы по месяцам
-  const incomeRows = await dbAll(
-    `SELECT 
-       strftime('%Y-%m', date) as month,
-       SUM(amount) as total
-     FROM incomes
-     WHERE date >= ?
-     GROUP BY month
-     ORDER BY month`,
-    [startDateStr]
-  );
+  // Фильтруем доходы и расходы по начальной дате
+  const incomes = db.data.incomes.filter((item) => item.date >= startDateStr);
+  const expenses = db.data.expenses.filter((item) => item.date >= startDateStr);
 
-  // Получаем расходы по месяцам
-  const expenseRows = await dbAll(
-    `SELECT 
-       strftime('%Y-%m', date) as month,
-       SUM(amount) as total
-     FROM expenses
-     WHERE date >= ?
-     GROUP BY month
-     ORDER BY month`,
-    [startDateStr]
-  );
+  // Группируем по году и месяцу
+  const monthMap = {};
 
-  // Создаём карту месяцев
-  const monthMap = new Map();
-
-  // Заполняем все месяцы нулями
-  for (let i = 0; i < monthsCount; i++) {
-    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-    monthMap.set(monthKey, { month: monthKey, income: 0, expense: 0 });
-  }
-
-  // Заполняем доходы
-  (incomeRows || []).forEach(row => {
-    if (monthMap.has(row.month)) {
-      monthMap.get(row.month).income = row.total;
+  incomes.forEach((item) => {
+    const date = new Date(item.date);
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1; // getMonth() возвращает 0-11
+    const key = `${year}-${String(month).padStart(2, '0')}`;
+    
+    if (!monthMap[key]) {
+      monthMap[key] = { year, month, income: 0, expense: 0 };
     }
+    monthMap[key].income += item.amount;
   });
 
-  // Заполняем расходы
-  (expenseRows || []).forEach(row => {
-    if (monthMap.has(row.month)) {
-      monthMap.get(row.month).expense = row.total;
+  expenses.forEach((item) => {
+    const date = new Date(item.date);
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const key = `${year}-${String(month).padStart(2, '0')}`;
+    
+    if (!monthMap[key]) {
+      monthMap[key] = { year, month, income: 0, expense: 0 };
     }
+    monthMap[key].expense += item.amount;
   });
 
-  // Преобразуем карту в массив и сортируем по возрастанию
-  return Array.from(monthMap.values()).sort((a, b) => a.month.localeCompare(b.month));
+  // Сортируем по году и месяцу
+  return Object.values(monthMap).sort((a, b) => {
+    if (a.year !== b.year) return a.year - b.year;
+    return a.month - b.month;
+  });
 };

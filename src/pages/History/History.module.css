@@ -1,39 +1,73 @@
-/* Контейнер страницы истории */
+/* Стили страницы истории */
 .history {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-lg);
 }
 
-/* Заголовок страницы */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-md);
+}
+
 .title {
   font-size: var(--font-size-2xl);
   font-weight: 700;
   color: var(--color-text);
 }
 
-/* Панель фильтров */
+.addButton {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md) var(--spacing-lg);
+  background-color: var(--color-primary);
+  color: white;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-sm);
+}
+
+.addButton:hover {
+  background-color: var(--color-primary-hover);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.addButton:active {
+  transform: translateY(0);
+}
+
+.addIcon {
+  font-size: var(--font-size-xl);
+  line-height: 1;
+}
+
+/* Фильтры */
 .filters {
   display: flex;
-  flex-wrap: wrap;
   gap: var(--spacing-md);
-  align-items: center;
-  background-color: var(--color-bg-card);
-  padding: var(--spacing-md) var(--spacing-lg);
+  flex-wrap: wrap;
+  background-color: var(--color-surface);
+  padding: var(--spacing-lg);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
 }
 
-/* Группа фильтра */
 .filterGroup {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-xs);
+  flex: 1;
+  min-width: 150px;
 }
 
 .filterLabel {
   font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
+  color: var(--color-text-muted);
   font-weight: 500;
 }
 
@@ -41,79 +75,48 @@
   padding: var(--spacing-sm) var(--spacing-md);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background-color: var(--color-bg-card);
+  background-color: var(--color-surface);
   color: var(--color-text);
-  font-size: var(--font-size-sm);
-  min-width: 160px;
-  transition: border-color 0.2s ease;
+  font-size: var(--font-size-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .filterSelect:hover {
-  border-color: var(--color-border-hover);
+  border-color: var(--color-primary);
 }
 
 .filterSelect:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.15);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
 }
 
-/* Поле поиска */
-.searchInput {
-  padding: var(--spacing-sm) var(--spacing-md);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background-color: var(--color-bg-card);
-  color: var(--color-text);
-  font-size: var(--font-size-sm);
-  min-width: 200px;
-  flex: 1;
-  transition: border-color 0.2s ease;
-}
-
-.searchInput::placeholder {
-  color: var(--color-text-light);
-}
-
-.searchInput:focus {
-  outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.15);
-}
-
-/* Кнопка добавления */
-.addButton {
-  padding: var(--spacing-sm) var(--spacing-lg);
-  background-color: var(--color-primary);
-  color: white;
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  transition: background-color 0.2s ease;
-  white-space: nowrap;
-}
-
-.addButton:hover {
-  background-color: var(--color-primary-hover);
-}
-
-/* Контейнер списка операций */
+/* Контейнер списка транзакций */
 .listContainer {
-  background-color: var(--color-bg-card);
+  background-color: var(--color-surface);
   border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
   box-shadow: var(--shadow-sm);
-  overflow: hidden;
 }
 
 /* Адаптивность для мобильных устройств */
 @media (max-width: 768px) {
-  .filters {
+  .header {
     flex-direction: column;
+    gap: var(--spacing-md);
     align-items: stretch;
   }
 
-  .filterSelect,
-  .searchInput {
-    min-width: 100%;
+  .addButton {
+    justify-content: center;
+  }
+
+  .filters {
+    flex-direction: column;
+  }
+
+  .filterGroup {
+    width: 100%;
   }
 }

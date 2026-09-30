@@ -1,25 +1,33 @@
-import * as expenseService from '../services/expenseService.js';
+import {
+  getAllExpenses,
+  getExpenseById,
+  createExpense,
+  updateExpense,
+  deleteExpense,
+} from '../services/expenseService.js';
+import { createError } from '../middleware/errorHandler.js';
 
 /**
- * Получение списка всех расходов с пагинацией и фильтрами
- * @param {Object} req - Объект запроса Express
- * @param {Object} res - Объект ответа Express
- * @param {Function} next - Следующий middleware
+ * Получение списка всех расходов с фильтрами и пагинацией
+ * GET /api/v1/expenses
  */
-export const getAll = async (req, res, next) => {
+export const getExpenses = async (req, res, next) => {
   try {
-    const { page, limit, category, dateFrom, dateTo, isRecurring } = req.query;
+    const { category, startDate, endDate, isRecurring, page = 1, limit = 20 } = req.query;
 
-    const result = await expenseService.getAll({
-      page: page ? parseInt(page, 10) : undefined,
-      limit: limit ? parseInt(limit, 10) : undefined,
+    const result = await getAllExpenses({
       category,
-      dateFrom,
-      dateTo,
+      startDate,
+      endDate,
       isRecurring: isRecurring !== undefined ? isRecurring === 'true' : undefined,
+      page: Number(page),
+      limit: Number(limit),
     });
 
-    res.json(result);
+    res.json({
+      data: result.data,
+      pagination: result.pagination,
+    });
   } catch (error) {
     next(error);
   }
@@ -27,23 +35,18 @@ export const getAll = async (req, res, next) => {
 
 /**
  * Получение расхода по ID
- * @param {Object} req - Объект запроса Express
- * @param {Object} res - Объект ответа Express
- * @param {Function} next - Следующий middleware
+ * GET /api/v1/expenses/:id
  */
-export const getById = async (req, res, next) => {
+export const getExpense = async (req, res, next) => {
   try {
     const { id } = req.params;
-
-    const expense = await expenseService.getById(id);
+    const expense = await getExpenseById(id);
 
     if (!expense) {
-      const error = new Error(`Расход с ID ${id} не найден`);
-      error.statusCode = 404;
-      throw error;
+      return next(createError('Расход не найден', 404, 'NOT_FOUND'));
     }
 
-    res.json(expense);
+    res.json({ data: expense });
   } catch (error) {
     next(error);
   }
@@ -51,15 +54,13 @@ export const getById = async (req, res, next) => {
 
 /**
  * Создание нового расхода
- * @param {Object} req - Объект запроса Express
- * @param {Object} res - Объект ответа Express
- * @param {Function} next - Следующий middleware
+ * POST /api/v1/expenses
  */
-export const create = async (req, res, next) => {
+export const addExpense = async (req, res, next) => {
   try {
     const { amount, date, category, comment, isRecurring } = req.body;
 
-    const newExpense = await expenseService.create({
+    const newExpense = await createExpense({
       amount,
       date,
       category,
@@ -67,24 +68,25 @@ export const create = async (req, res, next) => {
       isRecurring,
     });
 
-    res.status(201).json(newExpense);
+    res.status(201).json({
+      data: newExpense,
+      message: 'Расход успешно создан',
+    });
   } catch (error) {
     next(error);
   }
 };
 
 /**
- * Обновление расхода
- * @param {Object} req - Объект запроса Express
- * @param {Object} res - Объект ответа Express
- * @param {Function} next - Следующий middleware
+ * Обновление существующего расхода
+ * PUT /api/v1/expenses/:id
  */
-export const update = async (req, res, next) => {
+export const editExpense = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { amount, date, category, comment, isRecurring } = req.body;
 
-    const updatedExpense = await expenseService.update(id, {
+    const updatedExpense = await updateExpense(id, {
       amount,
       date,
       category,
@@ -93,12 +95,13 @@ export const update = async (req, res, next) => {
     });
 
     if (!updatedExpense) {
-      const error = new Error(`Расход с ID ${id} не найден`);
-      error.statusCode = 404;
-      throw error;
+      return next(createError('Расход не найден', 404, 'NOT_FOUND'));
     }
 
-    res.json(updatedExpense);
+    res.json({
+      data: updatedExpense,
+      message: 'Расход успешно обновлён',
+    });
   } catch (error) {
     next(error);
   }
@@ -106,23 +109,20 @@ export const update = async (req, res, next) => {
 
 /**
  * Удаление расхода
- * @param {Object} req - Объект запроса Express
- * @param {Object} res - Объект ответа Express
- * @param {Function} next - Следующий middleware
+ * DELETE /api/v1/expenses/:id
  */
-export const remove = async (req, res, next) => {
+export const removeExpense = async (req, res, next) => {
   try {
     const { id } = req.params;
+    const success = await deleteExpense(id);
 
-    const deleted = await expenseService.remove(id);
-
-    if (!deleted) {
-      const error = new Error(`Расход с ID ${id} не найден`);
-      error.statusCode = 404;
-      throw error;
+    if (!success) {
+      return next(createError('Расход не найден', 404, 'NOT_FOUND'));
     }
 
-    res.json({ success: true, message: 'Расход успешно удалён' });
+    res.json({
+      message: 'Расход успешно удалён',
+    });
   } catch (error) {
     next(error);
   }

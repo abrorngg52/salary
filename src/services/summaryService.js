@@ -1,205 +1,163 @@
 import { getIncomes } from './incomeService';
 import { getExpenses } from './expenseService';
 import { INCOME_CATEGORIES, EXPENSE_CATEGORIES } from '../utils/constants';
-import { getMonthKey, getMonthLabel } from '../utils/formatters';
 
 /**
- * Получение общего баланса (доходы - расходы)
- * @returns {Object} Объект с totalIncome, totalExpense, balance
+ * Сервис для агрегации и анализа финансовых данных
+ * Предоставляет функции для получения сводной информации, статистики по категориям и периодам
+ */
+
+/**
+ * Получение общего баланса (доходы минус расходы)
+ * @returns {Object} Объект с общей суммой доходов, расходов и балансом
  */
 export const getBalance = () => {
-  try {
-    const incomes = getIncomes();
-    const expenses = getExpenses();
+  const incomes = getIncomes();
+  const expenses = getExpenses();
 
-    const totalIncome = (incomes || []).reduce((sum, income) => {
-      return sum + (parseFloat(income?.amount) || 0);
-    }, 0);
+  const totalIncome = incomes.reduce((sum, income) => sum + (income.amount || 0), 0);
+  const totalExpense = expenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
+  const balance = totalIncome - totalExpense;
 
-    const totalExpense = (expenses || []).reduce((sum, expense) => {
-      return sum + (parseFloat(expense?.amount) || 0);
-    }, 0);
-
-    const balance = totalIncome - totalExpense;
-
-    return {
-      totalIncome,
-      totalExpense,
-      balance,
-    };
-  } catch (error) {
-    console.error('Ошибка подсчёта баланса:', error);
-    return {
-      totalIncome: 0,
-      totalExpense: 0,
-      balance: 0,
-    };
-  }
+  return {
+    totalIncome,
+    totalExpense,
+    balance,
+  };
 };
 
 /**
- * Получение всех операций (доходы + расходы), отсортированных по дате
- * @returns {Array} Массив всех операций
+ * Получение сумм по категориям для круговой диаграммы
+ * @param {string} type - Тип операции ('income' или 'expense')
+ * @returns {Array} Массив объектов для графика [{ name: 'Категория', value: 1000 }, ...]
  */
-export const getAllTransactions = () => {
-  try {
-    const incomes = getIncomes() || [];
-    const expenses = getExpenses() || [];
+export const getByCategory = (type = 'expense') => {
+  const transactions = type === 'income' ? getIncomes() : getExpenses();
+  const categories = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
 
-    const allTransactions = [
-      ...incomes.map(income => ({ ...income, type: 'income' })),
-      ...expenses.map(expense => ({ ...expense, type: 'expense' })),
-    ];
+  // Группируем суммы по категориям
+  const categorySums = {};
+  (transactions || []).forEach((transaction) => {
+    const categoryId = transaction.category;
+    if (!categorySums[categoryId]) {
+      categorySums[categoryId] = 0;
+    }
+    categorySums[categoryId] += transaction.amount || 0;
+  });
 
-    // Сортировка по дате (новые сначала)
-    return allTransactions.sort((a, b) => {
-      const dateA = new Date(a?.date || 0);
-      const dateB = new Date(b?.date || 0);
-      return dateB - dateA;
-    });
-  } catch (error) {
-    console.error('Ошибка получения всех операций:', error);
-    return [];
-  }
+  // Преобразуем в формат для графика
+  return categories
+    .map((category) => ({
+      name: category.label,
+      value: categorySums[category.id] || 0,
+    }))
+    .filter((item) => item.value > 0)
+    .sort((a, b) => b.value - a.value);
 };
 
 /**
- * Получение последних N операций
- * @param {number} limit - Количество операций
- * @returns {Array} Массив последних операций
- */
-export const getRecentTransactions = (limit = 5) => {
-  try {
-    const allTransactions = getAllTransactions();
-    return allTransactions.slice(0, limit);
-  } catch (error) {
-    console.error('Ошибка получения последних операций:', error);
-    return [];
-  }
-};
-
-/**
- * Получение данных для круговой диаграммы (распределение расходов по категориям)
- * @returns {Array} Массив объектов { name, value }
- */
-export const getByCategory = () => {
-  try {
-    const expenses = getExpenses() || [];
-
-    // Группировка по категориям
-    const categoryMap = {};
-    expenses.forEach(expense => {
-      const categoryId = expense?.category || 'other';
-      const amount = parseFloat(expense?.amount) || 0;
-      
-      if (!categoryMap[categoryId]) {
-        categoryMap[categoryId] = 0;
-      }
-      categoryMap[categoryId] += amount;
-    });
-
-    // Преобразование в массив для графика
-    const result = Object.entries(categoryMap).map(([categoryId, value]) => {
-      // Поиск названия категории
-      const categoryObj = EXPENSE_CATEGORIES.find(cat => cat.id === categoryId);
-      const name = categoryObj?.label || categoryId;
-      
-      return {
-        name,
-        value,
-      };
-    });
-
-    // Сортировка по убыванию суммы
-    return result.sort((a, b) => b.value - a.value);
-  } catch (error) {
-    console.error('Ошибка группировки по категориям:', error);
-    return [];
-  }
-};
-
-/**
- * Получение данных для столбчатого графика (доходы и расходы по месяцам)
- * @param {number} monthsCount - Количество последних месяцев
- * @returns {Array} Массив объектов { month, income, expense }
+ * Получение помесячной сводки для столбчатого графика
+ * @param {number} monthsCount - Количество месяцев для отображения (по умолчанию 6)
+ * @returns {Array} Массив объектов для графика [{ month: 'Янв', income: 50000, expense: 30000 }, ...]
  */
 export const getMonthlySummary = (monthsCount = 6) => {
-  try {
-    const incomes = getIncomes() || [];
-    const expenses = getExpenses() || [];
+  const incomes = getIncomes();
+  const expenses = getExpenses();
 
-    // Получаем последние N месяцев
-    const now = new Date();
-    const months = [];
-    
-    for (let i = monthsCount - 1; i >= 0; i--) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = getMonthKey(date);
-      const label = getMonthLabel(date.getMonth());
-      
-      months.push({
-        key,
-        label,
-        income: 0,
-        expense: 0,
-      });
-    }
+  // Создаём массив последних N месяцев
+  const months = [];
+  const now = new Date();
 
-    // Подсчёт доходов по месяцам
-    incomes.forEach(income => {
-      const monthKey = getMonthKey(income?.date);
-      const monthData = months.find(m => m.key === monthKey);
-      if (monthData) {
-        monthData.income += parseFloat(income?.amount) || 0;
-      }
+  for (let i = monthsCount - 1; i >= 0; i--) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const year = date.getFullYear();
+    const month = date.getMonth();
+
+    months.push({
+      year,
+      month,
+      label: date.toLocaleDateString('ru-RU', { month: 'short' }),
+      income: 0,
+      expense: 0,
     });
-
-    // Подсчёт расходов по месяцам
-    expenses.forEach(expense => {
-      const monthKey = getMonthKey(expense?.date);
-      const monthData = months.find(m => m.key === monthKey);
-      if (monthData) {
-        monthData.expense += parseFloat(expense?.amount) || 0;
-      }
-    });
-
-    // Преобразование для графика
-    return months.map(m => ({
-      month: m.label,
-      income: m.income,
-      expense: m.expense,
-    }));
-  } catch (error) {
-    console.error('Ошибка подсчёта по месяцам:', error);
-    return [];
   }
+
+  // Суммируем доходы по месяцам
+  (incomes || []).forEach((income) => {
+    const date = new Date(income.date);
+    const year = date.getFullYear();
+    const month = date.getMonth();
+
+    const monthData = months.find((m) => m.year === year && m.month === month);
+    if (monthData) {
+      monthData.income += income.amount || 0;
+    }
+  });
+
+  // Суммируем расходы по месяцам
+  (expenses || []).forEach((expense) => {
+    const date = new Date(expense.date);
+    const year = date.getFullYear();
+    const month = date.getMonth();
+
+    const monthData = months.find((m) => m.year === year && m.month === month);
+    if (monthData) {
+      monthData.expense += expense.amount || 0;
+    }
+  });
+
+  // Возвращаем в формате для графика
+  return months.map((m) => ({
+    month: m.label,
+    income: m.income,
+    expense: m.expense,
+  }));
 };
 
 /**
- * Получение операции по ID (доход или расход)
- * @param {string} id - ID операции
- * @returns {Object|null} Объект операции или null
+ * Получение последних транзакций (доходы + расходы)
+ * @param {number} limit - Количество транзакций (по умолчанию 5)
+ * @returns {Array} Массив последних транзакций, отсортированных по дате
  */
-export const getTransactionById = (id) => {
-  try {
-    if (!id) return null;
+export const getRecentTransactions = (limit = 5) => {
+  const incomes = getIncomes();
+  const expenses = getExpenses();
 
-    const incomes = getIncomes() || [];
-    const expenses = getExpenses() || [];
+  // Объединяем и сортируем по дате (новые первые)
+  const allTransactions = [...incomes, ...expenses]
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, limit);
 
-    const income = incomes.find(i => i?.id === id);
-    if (income) {
-      return { ...income, type: 'income' };
-    }
+  return allTransactions;
+};
 
-    const expense = expenses.find(e => e?.id === id);
-    if (expense) {
-      return { ...expense, type: 'expense' };
-    }
+/**
+ * Получение всех транзакций с фильтрацией
+ * @param {Object} filters - Объект фильтров
+ * @param {string} filters.type - Тип операции ('all', 'income', 'expense')
+ * @param {string} filters.category - ID категории ('all' или конкретный ID)
+ * @returns {Array} Отфильтрованный массив транзакций
+ */
+export const getFilteredTransactions = (filters = {}) => {
+  const incomes = getIncomes();
+  const expenses = getExpenses();
 
-    return null;
-  } catch (error) {
-    console.error('Ошибка получения операции по ID:', error);
-    return null;
+  let transactions = [];
+
+  // Фильтрация по типу
+  if (filters.type === 'income') {
+    transactions = incomes;
+  } else if (filters.type === 'expense') {
+    transactions = expenses;
+  } else {
+    transactions = [...incomes, ...expenses];
   }
+
+  // Фильтрация по категории
+  if (filters.category && filters.category !== 'all') {
+    transactions = transactions.filter((t) => t.category === filters.category);
+  }
+
+  // Сортировка по дате (новые первые)
+  return transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
 };

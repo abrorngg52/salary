@@ -1,63 +1,77 @@
-import * as summaryService from '../services/summaryService.js';
+import { getBalance, getByCategory, getByMonth } from '../services/summaryService.js';
 
 /**
- * Получение общего баланса (доходы - расходы)
- * @param {Object} req - Объект запроса Express
- * @param {Object} res - Объект ответа Express
- * @param {Function} next - Следующий middleware
+ * Получение общего баланса
+ * GET /api/v1/summary
  */
-export const getBalance = async (req, res, next) => {
+export const getBalanceHandler = async (req, res, next) => {
   try {
-    const { dateFrom, dateTo } = req.query;
+    const { startDate, endDate } = req.query;
 
-    const balance = await summaryService.getBalance({
-      dateFrom,
-      dateTo,
+    const balance = await getBalance(startDate, endDate);
+
+    res.json({
+      data: balance,
     });
-
-    res.json(balance);
   } catch (error) {
     next(error);
   }
 };
 
 /**
- * Получение расходов, сгруппированных по категориям
- * @param {Object} req - Объект запроса Express
- * @param {Object} res - Объект ответа Express
- * @param {Function} next - Следующий middleware
+ * Получение сумм по категориям
+ * GET /api/v1/summary/by-category
  */
-export const getByCategory = async (req, res, next) => {
+export const getByCategoryHandler = async (req, res, next) => {
   try {
-    const { dateFrom, dateTo } = req.query;
+    const { type = 'expense', startDate, endDate } = req.query;
 
-    const categories = await summaryService.getByCategory({
-      dateFrom,
-      dateTo,
+    // Валидация типа
+    if (type !== 'income' && type !== 'expense') {
+      return res.status(400).json({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Параметр type должен быть "income" или "expense"',
+        },
+      });
+    }
+
+    const categoryData = await getByCategory(type, startDate, endDate);
+
+    res.json({
+      data: categoryData,
+      type,
     });
-
-    res.json(categories);
   } catch (error) {
     next(error);
   }
 };
 
 /**
- * Получение доходов и расходов, сгруппированных по месяцам
- * @param {Object} req - Объект запроса Express
- * @param {Object} res - Объект ответа Express
- * @param {Function} next - Следующий middleware
+ * Получение помесячной сводки
+ * GET /api/v1/summary/by-month
  */
-export const getByMonth = async (req, res, next) => {
+export const getByMonthHandler = async (req, res, next) => {
   try {
-    const { months } = req.query;
+    const { months = 6 } = req.query;
 
-    // Количество месяцев (по умолчанию 12, максимум 24)
-    const monthsCount = months ? Math.min(24, Math.max(1, parseInt(months, 10))) : 12;
+    // Валидация количества месяцев
+    const monthsCount = Number(months);
+    if (isNaN(monthsCount) || monthsCount < 1 || monthsCount > 24) {
+      return res.status(400).json({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Параметр months должен быть числом от 1 до 24',
+        },
+      });
+    }
 
-    const monthlyData = await summaryService.getByMonth(monthsCount);
+    const monthlyData = await getByMonth(monthsCount);
 
-    res.json(monthlyData);
+    res.json({
+      data: monthlyData,
+      monthsCount,
+    });
   } catch (error) {
     next(error);
   }

@@ -1,27 +1,31 @@
-import express from 'express';
-import * as summaryController from '../controllers/summaryController.js';
+import { Router } from 'express';
+import {
+  getBalanceHandler,
+  getByCategoryHandler,
+  getByMonthHandler,
+} from '../controllers/summaryController.js';
 
-const router = express.Router();
+const router = Router();
 
 /**
- * GET /api/v1/summary/balance
- * Получение общего баланса (доходы - расходы)
- * Query params: dateFrom, dateTo (опционально)
+ * GET /api/v1/summary
+ * Получение общего баланса (доходы, расходы, разница)
+ * Query-параметры: startDate, endDate (опционально)
  */
-router.get('/balance', summaryController.getBalance);
+router.get('/', getBalanceHandler);
 
 /**
  * GET /api/v1/summary/by-category
- * Получение расходов, сгруппированных по категориям
- * Query params: dateFrom, dateTo (опционально)
+ * Получение сумм по категориям для круговой диаграммы
+ * Query-параметры: type ('income' | 'expense'), startDate, endDate
  */
-router.get('/by-category', summaryController.getByCategory);
+router.get('/by-category', getByCategoryHandler);
 
 /**
  * GET /api/v1/summary/by-month
- * Получение доходов и расходов, сгруппированных по месяцам
- * Query params: months (количество месяцев, по умолчанию 12)
+ * Получение помесячной сводки доходов и расходов
+ * Query-параметры: months (количество последних месяцев, от 1 до 24)
  */
-router.get('/by-month', summaryController.getByMonth);
+router.get('/by-month', getByMonthHandler);
 
 export default router;

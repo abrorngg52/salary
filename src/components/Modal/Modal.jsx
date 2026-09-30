@@ -1,70 +1,49 @@
-import React, { useEffect } from 'react';
-import ReactDOM from 'react-dom';
-import styles from './Modal.module.css';
+import React, { useEffect } from "react";
+import styles from "./Modal.module.css";
 
-function Modal({ isOpen, onClose, title, children, footer }) {
-  // Обработка нажатия Escape для закрытия
+function Modal({ isOpen, onClose, title, children }) {
+  // Закрытие по Escape
   useEffect(() => {
     if (!isOpen) return;
 
     const handleEscape = (e) => {
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         onClose();
       }
     };
 
-    document.addEventListener('keydown', handleEscape);
-    
-    // Блокируем прокрутку body, когда модалка открыта
-    document.body.style.overflow = 'hidden';
+    document.addEventListener("keydown", handleEscape);
+
+    // Блокируем скролл body, когда модалка открыта
+    document.body.style.overflow = "hidden";
 
     return () => {
-      document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'unset';
+      document.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = "unset";
     };
   }, [isOpen, onClose]);
 
-  // Закрытие по клику на overlay (но не на content)
+  // Закрытие по клику на overlay
   const handleOverlayClick = (e) => {
     if (e.target === e.currentTarget) {
       onClose();
     }
   };
 
-  if (!isOpen) {
-    return null;
-  }
+  if (!isOpen) return null;
 
-  // Используем ReactDOM.createPortal для рендера в body
-  return ReactDOM.createPortal(
+  return (
     <div className={styles.overlay} onClick={handleOverlayClick}>
-      <div className={styles.content}>
-        {/* Заголовок */}
+      <div className={styles.modal}>
         <div className={styles.header}>
-          <h2 className={styles.title}>{title || 'Модальное окно'}</h2>
-          <button 
-            className={styles.closeButton}
-            onClick={onClose}
-            aria-label="Закрыть"
-          >
+          <h2 className={styles.title}>{title}</h2>
+          <button className={styles.closeButton} onClick={onClose}>
             ×
           </button>
         </div>
-
-        {/* Тело модалки */}
-        <div className={styles.body}>
-          {children}
-        </div>
-
-        {/* Футер (опционально) */}
-        {footer && (
-          <div className={styles.footer}>
-            {footer}
-          </div>
-        )}
+        <div className={styles.content}>{children}</div>
       </div>
-    </div>,
-    document.body
+    </div>
   );
 }
 

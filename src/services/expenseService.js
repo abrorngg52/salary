@@ -1,119 +1,104 @@
-import { getExpenses as getExpensesFromStorage, setExpenses, generateId } from './storage';
+import { storageGet, storageSet, generateId } from './storage';
+import { STORAGE_KEYS } from '../utils/constants';
+
+/**
+ * Сервис для работы с расходами
+ * Предоставляет CRUD-операции для управления расходами в localStorage
+ */
 
 /**
  * Получение всех расходов
- * @returns {Array} Массив расходов
+ * @returns {Array} Массив всех расходов
  */
 export const getExpenses = () => {
-  try {
-    const expenses = getExpensesFromStorage();
-    return Array.isArray(expenses) ? expenses : [];
-  } catch (error) {
-    console.error('Ошибка получения расходов:', error);
-    return [];
-  }
+  return storageGet(STORAGE_KEYS.EXPENSES, []);
 };
 
 /**
  * Получение расхода по ID
- * @param {string} id - ID расхода
- * @returns {Object|null} Объект расхода или null
+ * @param {string} id - Идентификатор расхода
+ * @returns {Object|null} Объект расхода или null, если не найден
  */
 export const getExpenseById = (id) => {
-  try {
-    if (!id) return null;
-    const expenses = getExpenses();
-    return expenses.find(expense => expense?.id === id) || null;
-  } catch (error) {
-    console.error('Ошибка получения расхода по ID:', error);
-    return null;
-  }
+  const expenses = getExpenses();
+  return expenses.find((expense) => expense.id === id) || null;
 };
 
 /**
  * Добавление нового расхода
- * @param {Object} expenseData - Данные расхода (category, amount, date, comment)
- * @returns {Object|null} Созданный расход или null при ошибке
+ * @param {Object} expenseData - Данные расхода (без id)
+ * @param {string} expenseData.category - ID категории
+ * @param {number} expenseData.amount - Сумма
+ * @param {string} expenseData.date - Дата в формате ISO
+ * @param {string} expenseData.comment - Комментарий
+ * @returns {Object} Созданный объект расхода с id
  */
 export const addExpense = (expenseData) => {
-  try {
-    if (!expenseData) return null;
+  const expenses = getExpenses();
 
-    const expenses = getExpenses();
-    const newExpense = {
-      id: generateId(),
-      type: 'expense',
-      category: expenseData.category || 'other',
-      amount: parseFloat(expenseData.amount) || 0,
-      date: expenseData.date || new Date().toISOString().split('T')[0],
-      comment: expenseData.comment?.trim() || '',
-      createdAt: new Date().toISOString(),
-    };
+  const newExpense = {
+    id: generateId(),
+    type: 'expense',
+    category: expenseData.category,
+    amount: Number(expenseData.amount),
+    date: expenseData.date,
+    comment: expenseData.comment || '',
+  };
 
-    expenses.push(newExpense);
-    setExpenses(expenses);
+  expenses.push(newExpense);
+  storageSet(STORAGE_KEYS.EXPENSES, expenses);
 
-    return newExpense;
-  } catch (error) {
-    console.error('Ошибка добавления расхода:', error);
-    return null;
-  }
+  return newExpense;
 };
 
 /**
- * Обновление расхода
- * @param {string} id - ID расхода
+ * Обновление существующего расхода
+ * @param {string} id - Идентификатор расхода для обновления
  * @param {Object} expenseData - Новые данные расхода
- * @returns {Object|null} Обновлённый расход или null при ошибке
+ * @returns {Object|null} Обновлённый объект расхода или null, если не найден
  */
 export const updateExpense = (id, expenseData) => {
-  try {
-    if (!id || !expenseData) return null;
+  const expenses = getExpenses();
+  const index = expenses.findIndex((expense) => expense.id === id);
 
-    const expenses = getExpenses();
-    const index = expenses.findIndex(expense => expense?.id === id);
+  if (index === -1) return null;
 
-    if (index === -1) return null;
+  const updatedExpense = {
+    ...expenses[index],
+    category: expenseData.category,
+    amount: Number(expenseData.amount),
+    date: expenseData.date,
+    comment: expenseData.comment || '',
+  };
 
-    const updatedExpense = {
-      ...expenses[index],
-      category: expenseData.category ?? expenses[index].category,
-      amount: parseFloat(expenseData.amount) ?? expenses[index].amount,
-      date: expenseData.date ?? expenses[index].date,
-      comment: expenseData.comment?.trim() ?? expenses[index].comment,
-      updatedAt: new Date().toISOString(),
-    };
+  expenses[index] = updatedExpense;
+  storageSet(STORAGE_KEYS.EXPENSES, expenses);
 
-    expenses[index] = updatedExpense;
-    setExpenses(expenses);
-
-    return updatedExpense;
-  } catch (error) {
-    console.error('Ошибка обновления расхода:', error);
-    return null;
-  }
+  return updatedExpense;
 };
 
 /**
  * Удаление расхода
- * @param {string} id - ID расхода
- * @returns {boolean} true если удалён, false при ошибке
+ * @param {string} id - Идентификатор расхода для удаления
+ * @returns {boolean} true, если удаление успешно
  */
 export const deleteExpense = (id) => {
-  try {
-    if (!id) return false;
+  const expenses = getExpenses();
+  const filteredExpenses = expenses.filter((expense) => expense.id !== id);
 
-    const expenses = getExpenses();
-    const filteredExpenses = expenses.filter(expense => expense?.id !== id);
-
-    if (filteredExpenses.length === expenses.length) {
-      return false; // Расход не найден
-    }
-
-    setExpenses(filteredExpenses);
-    return true;
-  } catch (error) {
-    console.error('Ошибка удаления расхода:', error);
-    return false;
+  if (filteredExpenses.length === expenses.length) {
+    return false; // Расход не найден
   }
+
+  storageSet(STORAGE_KEYS.EXPENSES, filteredExpenses);
+  return true;
+};
+
+/**
+ * Удаление всех расходов
+ * @returns {boolean} true, если очистка успешна
+ */
+export const clearAllExpenses = () => {
+  storageSet(STORAGE_KEYS.EXPENSES, []);
+  return true;
 };

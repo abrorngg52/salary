@@ -1,119 +1,104 @@
-import { getIncomes as getIncomesFromStorage, setIncomes, generateId } from './storage';
+import { storageGet, storageSet, generateId } from './storage';
+import { STORAGE_KEYS } from '../utils/constants';
+
+/**
+ * Сервис для работы с доходами
+ * Предоставляет CRUD-операции для управления доходами в localStorage
+ */
 
 /**
  * Получение всех доходов
- * @returns {Array} Массив доходов
+ * @returns {Array} Массив всех доходов
  */
 export const getIncomes = () => {
-  try {
-    const incomes = getIncomesFromStorage();
-    return Array.isArray(incomes) ? incomes : [];
-  } catch (error) {
-    console.error('Ошибка получения доходов:', error);
-    return [];
-  }
+  return storageGet(STORAGE_KEYS.INCOMES, []);
 };
 
 /**
  * Получение дохода по ID
- * @param {string} id - ID дохода
- * @returns {Object|null} Объект дохода или null
+ * @param {string} id - Идентификатор дохода
+ * @returns {Object|null} Объект дохода или null, если не найден
  */
 export const getIncomeById = (id) => {
-  try {
-    if (!id) return null;
-    const incomes = getIncomes();
-    return incomes.find(income => income?.id === id) || null;
-  } catch (error) {
-    console.error('Ошибка получения дохода по ID:', error);
-    return null;
-  }
+  const incomes = getIncomes();
+  return incomes.find((income) => income.id === id) || null;
 };
 
 /**
  * Добавление нового дохода
- * @param {Object} incomeData - Данные дохода (category, amount, date, comment)
- * @returns {Object|null} Созданный доход или null при ошибке
+ * @param {Object} incomeData - Данные дохода (без id)
+ * @param {string} incomeData.category - ID категории
+ * @param {number} incomeData.amount - Сумма
+ * @param {string} incomeData.date - Дата в формате ISO
+ * @param {string} incomeData.comment - Комментарий
+ * @returns {Object} Созданный объект дохода с id
  */
 export const addIncome = (incomeData) => {
-  try {
-    if (!incomeData) return null;
+  const incomes = getIncomes();
 
-    const incomes = getIncomes();
-    const newIncome = {
-      id: generateId(),
-      type: 'income',
-      category: incomeData.category || 'other',
-      amount: parseFloat(incomeData.amount) || 0,
-      date: incomeData.date || new Date().toISOString().split('T')[0],
-      comment: incomeData.comment?.trim() || '',
-      createdAt: new Date().toISOString(),
-    };
+  const newIncome = {
+    id: generateId(),
+    type: 'income',
+    category: incomeData.category,
+    amount: Number(incomeData.amount),
+    date: incomeData.date,
+    comment: incomeData.comment || '',
+  };
 
-    incomes.push(newIncome);
-    setIncomes(incomes);
+  incomes.push(newIncome);
+  storageSet(STORAGE_KEYS.INCOMES, incomes);
 
-    return newIncome;
-  } catch (error) {
-    console.error('Ошибка добавления дохода:', error);
-    return null;
-  }
+  return newIncome;
 };
 
 /**
- * Обновление дохода
- * @param {string} id - ID дохода
+ * Обновление существующего дохода
+ * @param {string} id - Идентификатор дохода для обновления
  * @param {Object} incomeData - Новые данные дохода
- * @returns {Object|null} Обновлённый доход или null при ошибке
+ * @returns {Object|null} Обновлённый объект дохода или null, если не найден
  */
 export const updateIncome = (id, incomeData) => {
-  try {
-    if (!id || !incomeData) return null;
+  const incomes = getIncomes();
+  const index = incomes.findIndex((income) => income.id === id);
 
-    const incomes = getIncomes();
-    const index = incomes.findIndex(income => income?.id === id);
+  if (index === -1) return null;
 
-    if (index === -1) return null;
+  const updatedIncome = {
+    ...incomes[index],
+    category: incomeData.category,
+    amount: Number(incomeData.amount),
+    date: incomeData.date,
+    comment: incomeData.comment || '',
+  };
 
-    const updatedIncome = {
-      ...incomes[index],
-      category: incomeData.category ?? incomes[index].category,
-      amount: parseFloat(incomeData.amount) ?? incomes[index].amount,
-      date: incomeData.date ?? incomes[index].date,
-      comment: incomeData.comment?.trim() ?? incomes[index].comment,
-      updatedAt: new Date().toISOString(),
-    };
+  incomes[index] = updatedIncome;
+  storageSet(STORAGE_KEYS.INCOMES, incomes);
 
-    incomes[index] = updatedIncome;
-    setIncomes(incomes);
-
-    return updatedIncome;
-  } catch (error) {
-    console.error('Ошибка обновления дохода:', error);
-    return null;
-  }
+  return updatedIncome;
 };
 
 /**
  * Удаление дохода
- * @param {string} id - ID дохода
- * @returns {boolean} true если удалён, false при ошибке
+ * @param {string} id - Идентификатор дохода для удаления
+ * @returns {boolean} true, если удаление успешно
  */
 export const deleteIncome = (id) => {
-  try {
-    if (!id) return false;
+  const incomes = getIncomes();
+  const filteredIncomes = incomes.filter((income) => income.id !== id);
 
-    const incomes = getIncomes();
-    const filteredIncomes = incomes.filter(income => income?.id !== id);
-
-    if (filteredIncomes.length === incomes.length) {
-      return false; // Доход не найден
-    }
-
-    setIncomes(filteredIncomes);
-    return true;
-  } catch (error) {
-    console.error('Ошибка удаления дохода:', error);
-    return false;
+  if (filteredIncomes.length === incomes.length) {
+    return false; // Доход не найден
   }
+
+  storageSet(STORAGE_KEYS.INCOMES, filteredIncomes);
+  return true;
+};
+
+/**
+ * Удаление всех доходов
+ * @returns {boolean} true, если очистка успешна
+ */
+export const clearAllIncomes = () => {
+  storageSet(STORAGE_KEYS.INCOMES, []);
+  return true;
 };
