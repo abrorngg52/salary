@@ -1,0 +1,47 @@
+import * as api from './api.js';
+
+/**
+ * Получение всех расходов с опциональными фильтрами
+ * @param {Object} filters - Фильтры (category, startDate, endDate, isRecurring, page, limit)
+ * @returns {Promise} Объект { data: [...], pagination: {...} }
+ */
+export const getExpenses = async (filters = {}) => {
+  return await api.get('/expenses', filters);
+};
+
+/**
+ * Получение расхода по ID
+ * @param {string} id - Идентификатор расхода
+ * @returns {Promise} Объект расхода
+ */
+export const getExpenseById = async (id) => {
+  return await api.get(`/expenses/${id}`);
+};
+
+/**
+ * Добавление нового расхода
+ * @param {Object} expenseData - Данные расхода (amount, date, category, comment, isRecurring)
+ * @returns {Promise} Созданный объект расхода
+ */
+export const addExpense = async (expenseData) => {
+  return await api.post('/expenses', expenseData);
+};
+
+/**
+ * Обновление существующего расхода
+ * @param {string} id - Идентификатор расхода
+ * @param {Object} expenseData - Новые данные расхода
+ * @returns {Promise} Обновлённый объект расхода
+ */
+export const updateExpense = async (id, expenseData) => {
+  return await api.put(`/expenses/${id}`, expenseData);
+};
+
+/**
+ * Удаление расхода
+ * @param {string} id - Идентификатор расхода
+ * @returns {Promise} void
+ */
+export const deleteExpense = async (id) => {
+  return await api.del(`/expenses/${id}`);
+};
